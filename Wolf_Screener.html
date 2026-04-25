@@ -1,0 +1,683 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Lobo de Osternack · Stock Screener</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+:root {
+  --bg:       #080808;
+  --surface:  #0f0f0f;
+  --raised:   #161616;
+  --border:   #1f1f1f;
+  --border2:  #2a2a2a;
+  --green:    #4ade80;
+  --lime:     #a3e635;
+  --gold:     #eab308;
+  --muted:    #52525b;
+  --sub:      #3f3f46;
+  --text:     #f4f4f5;
+  --text2:    #a1a1aa;
+  --danger:   #ef4444;
+  --mono:     'DM Mono', monospace;
+  --sans:     'DM Sans', sans-serif;
+  --display:  'Bebas Neue', sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--sans)}
+body{display:flex;flex-direction:column;min-height:100vh}
+
+/* ── NAV ───────────────────────────────────────── */
+nav{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:0 2rem;height:52px;
+  border-bottom:1px solid var(--border);
+  background:var(--bg);position:sticky;top:0;z-index:100;
+}
+.nav-logo{display:flex;align-items:center;gap:10px}
+.nav-mark{
+  width:28px;height:28px;background:var(--green);border-radius:5px;
+  display:flex;align-items:center;justify-content:center;
+}
+.nav-mark svg{width:15px;height:15px;stroke:#080808;fill:none;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+.nav-name{font-family:var(--display);font-size:18px;letter-spacing:1px;color:var(--text)}
+.nav-tag{font-size:10px;color:var(--muted);font-family:var(--mono);margin-left:4px;margin-top:3px}
+.nav-right{display:flex;align-items:center;gap:8px}
+.nav-pill{
+  font-size:10px;font-family:var(--mono);color:var(--muted);
+  border:1px solid var(--border);border-radius:4px;padding:3px 8px;
+}
+.nav-pill.live{color:var(--green);border-color:var(--green);opacity:0.7}
+
+/* ── SCREENS ───────────────────────────────────── */
+.screen{display:none;flex:1}
+.screen.active{display:flex;flex-direction:column}
+
+/* ── LANDING ───────────────────────────────────── */
+#s-landing{
+  align-items:center;justify-content:center;
+  padding:3rem 1.5rem;
+  background:
+    radial-gradient(ellipse 60% 40% at 50% 0%, rgba(74,222,128,0.04) 0%, transparent 70%),
+    var(--bg);
+}
+.land-inner{max-width:680px;width:100%}
+.land-eyebrow{
+  font-family:var(--mono);font-size:11px;color:var(--green);
+  letter-spacing:2px;text-transform:uppercase;margin-bottom:1.25rem;
+  display:flex;align-items:center;gap:8px;
+}
+.land-eyebrow::before{content:'';display:block;width:24px;height:1px;background:var(--green)}
+.land-title{
+  font-family:var(--display);font-size:clamp(52px,8vw,88px);
+  line-height:0.92;letter-spacing:2px;color:var(--text);
+  margin-bottom:1.25rem;
+}
+.land-title span{color:var(--green)}
+.land-desc{font-size:15px;color:var(--text2);line-height:1.7;max-width:480px;margin-bottom:2.5rem}
+
+.drop-zone{
+  border:1px dashed var(--border2);border-radius:12px;
+  padding:2.5rem;text-align:center;cursor:pointer;
+  background:var(--surface);
+  transition:border-color 0.2s,background 0.2s;
+  position:relative;overflow:hidden;
+}
+.drop-zone::before{
+  content:'';position:absolute;inset:0;
+  background:radial-gradient(ellipse 80% 60% at 50% 120%, rgba(74,222,128,0.06) 0%, transparent 70%);
+  pointer-events:none;
+}
+.drop-zone:hover,.drop-zone.drag{border-color:var(--green);background:#0d1a10}
+.drop-zone input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
+.dz-icon{
+  width:44px;height:44px;border-radius:50%;border:1px solid var(--border2);
+  display:flex;align-items:center;justify-content:center;margin:0 auto 14px;
+  background:var(--raised);
+}
+.dz-icon svg{width:20px;height:20px;stroke:var(--green);fill:none;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+.dz-title{font-size:14px;font-weight:500;color:var(--text);margin-bottom:4px}
+.dz-sub{font-size:12px;color:var(--muted)}
+.dz-filename{font-family:var(--mono);font-size:11px;color:var(--green);margin-top:10px;min-height:16px}
+
+.method-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:1.5rem}
+.method-card{
+  background:var(--surface);border:1px solid var(--border);border-radius:8px;
+  padding:14px 16px;
+}
+.mc-num{font-family:var(--mono);font-size:10px;color:var(--sub);margin-bottom:6px}
+.mc-title{font-size:13px;font-weight:500;color:var(--text);margin-bottom:2px}
+.mc-desc{font-size:11px;color:var(--muted);line-height:1.5}
+
+/* ── LOADING ───────────────────────────────────── */
+#s-loading{
+  align-items:center;justify-content:center;padding:3rem 1.5rem;
+}
+.loading-inner{width:100%;max-width:560px}
+.loading-label{
+  font-family:var(--mono);font-size:10px;color:var(--muted);
+  letter-spacing:2px;text-transform:uppercase;margin-bottom:2rem;
+}
+.step-list{display:flex;flex-direction:column}
+.step-item{
+  display:flex;align-items:flex-start;gap:14px;
+  padding:16px 0;border-bottom:1px solid var(--border);
+}
+.step-item:last-child{border-bottom:none}
+.si-dot{
+  width:22px;height:22px;border-radius:50%;flex-shrink:0;margin-top:1px;
+  display:flex;align-items:center;justify-content:center;
+  transition:all 0.3s;
+}
+.si-dot.idle{border:1px solid var(--sub);background:transparent}
+.si-dot.run{border:1px solid var(--green);background:transparent;animation:pulse-ring 1s ease infinite}
+.si-dot.done{border:1px solid var(--green);background:var(--green)}
+.si-dot svg{width:11px;height:11px;stroke:#080808;fill:none;stroke-width:2.5;stroke-linecap:round;stroke-linejoin:round;display:none}
+.si-dot.done svg{display:block}
+@keyframes pulse-ring{
+  0%{box-shadow:0 0 0 0 rgba(74,222,128,0.4)}
+  70%{box-shadow:0 0 0 6px rgba(74,222,128,0)}
+  100%{box-shadow:0 0 0 0 rgba(74,222,128,0)}
+}
+.si-body{flex:1}
+.si-name{font-size:14px;font-weight:500;color:var(--muted);margin-bottom:2px;transition:color 0.3s}
+.si-name.active{color:var(--text)}
+.si-desc{font-size:12px;color:var(--sub);line-height:1.5}
+.si-count{font-family:var(--mono);font-size:11px;color:var(--green);margin-top:5px;min-height:15px}
+
+.progress-track{
+  margin-top:2rem;height:2px;background:var(--border);border-radius:2px;overflow:hidden;
+}
+.progress-fill{height:100%;width:0%;background:var(--green);transition:width 0.5s ease;border-radius:2px}
+
+/* ── RESULTS ───────────────────────────────────── */
+#s-results{padding:0;overflow:hidden}
+.results-wrap{display:flex;flex-direction:column;height:100%}
+
+.results-header{
+  padding:1.25rem 2rem;border-bottom:1px solid var(--border);
+  display:flex;align-items:center;justify-content:space-between;gap:16px;
+  background:var(--bg);flex-shrink:0;
+}
+.rh-left{}
+.rh-title{font-family:var(--display);font-size:26px;letter-spacing:1px;color:var(--text);line-height:1}
+.rh-sub{font-family:var(--mono);font-size:10px;color:var(--muted);margin-top:4px}
+.btn-row{display:flex;gap:8px}
+.btn{
+  display:inline-flex;align-items:center;gap:6px;
+  border:1px solid var(--border2);border-radius:6px;
+  padding:7px 14px;font-size:12px;font-weight:500;
+  color:var(--text2);cursor:pointer;background:var(--surface);
+  font-family:var(--sans);transition:all 0.15s;white-space:nowrap;
+}
+.btn:hover{background:var(--raised);color:var(--text);border-color:var(--border2)}
+.btn svg{width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.btn-export{background:#0d1a10;border-color:var(--green);color:var(--green)}
+.btn-export:hover{background:#122118;color:var(--lime)}
+
+.kpi-bar{
+  display:grid;grid-template-columns:repeat(5,1fr);
+  border-bottom:1px solid var(--border);flex-shrink:0;
+}
+.kpi{padding:14px 1.5rem;border-right:1px solid var(--border)}
+.kpi:last-child{border-right:none}
+.kpi-label{font-family:var(--mono);font-size:9px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin-bottom:5px}
+.kpi-val{font-family:var(--mono);font-size:22px;font-weight:500;color:var(--text);line-height:1}
+.kpi-val.g{color:var(--green)}
+.kpi-val.r{color:var(--danger)}
+
+.table-area{flex:1;overflow:auto}
+table{width:100%;border-collapse:collapse;font-size:12px}
+thead{position:sticky;top:0;z-index:10}
+thead th{
+  background:#0c0c0c;
+  padding:10px 14px;
+  text-align:right;
+  font-family:var(--mono);font-size:9px;text-transform:uppercase;letter-spacing:1px;
+  color:var(--green);font-weight:500;white-space:nowrap;
+  border-bottom:1px solid var(--border2);
+}
+thead th:nth-child(1){text-align:center;width:50px}
+thead th:nth-child(2){text-align:left}
+thead th:nth-child(3){text-align:left}
+tbody tr{border-bottom:1px solid var(--border);transition:background 0.1s}
+tbody tr:hover{background:#111}
+tbody tr.t3{background:#0a1f0a}
+tbody tr.t3:hover{background:#0e2a0e}
+tbody tr.t20{background:#0b150b}
+tbody tr.t20:hover{background:#0e1e0e}
+td{
+  padding:9px 14px;color:#d4d4d8;
+  text-align:right;white-space:nowrap;
+  font-family:var(--mono);font-size:11px;
+}
+td:nth-child(1){text-align:center;color:var(--muted);width:50px}
+td:nth-child(2){text-align:left;font-family:var(--sans);font-weight:600;font-size:12px;color:var(--text);letter-spacing:0.3px}
+td:nth-child(3){text-align:left;font-family:var(--sans);font-size:11px;color:var(--muted);max-width:180px;overflow:hidden;text-overflow:ellipsis}
+
+.rank-badge{
+  display:inline-flex;align-items:center;justify-content:center;
+  width:24px;height:24px;border-radius:50%;
+  font-family:var(--mono);font-size:9px;font-weight:700;
+}
+.r-gold{background:var(--gold);color:#1a0a00}
+.r-green{background:var(--green);color:#080808}
+.r-num{font-family:var(--mono);font-size:10px;color:var(--sub)}
+.ev-top3{color:var(--gold);font-weight:700}
+.ev-top20{color:var(--lime)}
+.ev-none{color:var(--sub)}
+
+.log-bar{
+  border-top:1px solid var(--border);padding:10px 2rem;
+  display:flex;gap:24px;flex-wrap:wrap;flex-shrink:0;
+  background:var(--bg);
+}
+.log-item{font-family:var(--mono);font-size:10px;color:var(--sub);display:flex;align-items:center;gap:6px}
+.log-item::before{content:'›';color:var(--green)}
+
+/* scrollbar */
+::-webkit-scrollbar{width:4px;height:4px}
+::-webkit-scrollbar-track{background:var(--bg)}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px}
+::-webkit-scrollbar-thumb:hover{background:var(--muted)}
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-logo">
+    <div class="nav-mark">
+      <svg viewBox="0 0 15 15"><polyline points="1,12 5,6 9,9 13,2"/><circle cx="13" cy="2" r="1.5" fill="#080808" stroke="none"/></svg>
+    </div>
+    <div>
+      <div class="nav-name">LOBO DE OSTERNACK</div>
+    </div>
+    <div class="nav-tag">/ stock screener</div>
+  </div>
+  <div class="nav-right">
+    <div class="nav-pill">Método Lobo v1.0</div>
+    <div class="nav-pill live" id="navStatus">● ready</div>
+  </div>
+</nav>
+
+<!-- LANDING -->
+<div class="screen active" id="s-landing">
+  <div class="land-inner">
+    <div class="land-eyebrow">Quarterly rebalancing tool</div>
+    <div class="land-title">FIND THE<br><span>CHEAPEST</span><br>STOCKS.</div>
+    <div class="land-desc">Upload your InvestSite export and get a ranked list filtered by liquidity, EBIT margin and EV/EBIT. Top 20 highlighted.</div>
+
+    <div class="drop-zone" id="dropZone">
+      <input type="file" id="fileInput" accept=".xlsx,.xls"/>
+      <div class="dz-icon">
+        <svg viewBox="0 0 20 20"><path d="M4 14v2a2 2 0 002 2h8a2 2 0 002-2v-2"/><polyline points="7,8 10,5 13,8"/><line x1="10" y1="5" x2="10" y2="14"/></svg>
+      </div>
+      <div class="dz-title">Drop your InvestSite Excel here</div>
+      <div class="dz-sub">or click to browse · .xlsx only</div>
+      <div class="dz-filename" id="dz-filename"></div>
+    </div>
+
+    <div class="method-grid">
+      <div class="method-card">
+        <div class="mc-num">01 / LIQUIDITY</div>
+        <div class="mc-title">Volume filter</div>
+        <div class="mc-desc">Removes companies below R$3M avg daily volume</div>
+      </div>
+      <div class="method-card">
+        <div class="mc-num">02 / QUALITY</div>
+        <div class="mc-title">EBIT margin</div>
+        <div class="mc-desc">Keeps only companies with positive operating income</div>
+      </div>
+      <div class="method-card">
+        <div class="mc-num">03 / VALUE</div>
+        <div class="mc-title">EV/EBIT rank</div>
+        <div class="mc-desc">Sorts from cheapest to most expensive enterprise value</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- LOADING -->
+<div class="screen" id="s-loading">
+  <div class="loading-inner">
+    <div class="loading-label">Running screener</div>
+    <div class="step-list" id="stepList">
+      <div class="step-item">
+        <div class="si-dot idle" id="dot-0"><svg viewBox="0 0 11 11"><polyline points="1,5.5 4,8.5 10,2.5"/></svg></div>
+        <div class="si-body">
+          <div class="si-name" id="name-0">Loading file</div>
+          <div class="si-desc">Reading Excel rows from InvestSite export</div>
+          <div class="si-count" id="cnt-0"></div>
+        </div>
+      </div>
+      <div class="step-item">
+        <div class="si-dot idle" id="dot-1"><svg viewBox="0 0 11 11"><polyline points="1,5.5 4,8.5 10,2.5"/></svg></div>
+        <div class="si-body">
+          <div class="si-name" id="name-1">Liquidity filter</div>
+          <div class="si-desc">Removing companies with avg volume &lt; R$3,000,000</div>
+          <div class="si-count" id="cnt-1"></div>
+        </div>
+      </div>
+      <div class="step-item">
+        <div class="si-dot idle" id="dot-2"><svg viewBox="0 0 11 11"><polyline points="1,5.5 4,8.5 10,2.5"/></svg></div>
+        <div class="si-body">
+          <div class="si-name" id="name-2">EBIT margin filter</div>
+          <div class="si-desc">Keeping only companies with positive operating margin</div>
+          <div class="si-count" id="cnt-2"></div>
+        </div>
+      </div>
+      <div class="step-item">
+        <div class="si-dot idle" id="dot-3"><svg viewBox="0 0 11 11"><polyline points="1,5.5 4,8.5 10,2.5"/></svg></div>
+        <div class="si-body">
+          <div class="si-name" id="name-3">Removing banks &amp; insurers</div>
+          <div class="si-desc">Eliminating financial companies and duplicate tickers</div>
+          <div class="si-count" id="cnt-3"></div>
+        </div>
+      </div>
+      <div class="step-item">
+        <div class="si-dot idle" id="dot-4"><svg viewBox="0 0 11 11"><polyline points="1,5.5 4,8.5 10,2.5"/></svg></div>
+        <div class="si-body">
+          <div class="si-name" id="name-4">Ranking by EV/EBIT</div>
+          <div class="si-desc">Sorting from cheapest to most expensive — top 20 flagged</div>
+          <div class="si-count" id="cnt-4"></div>
+        </div>
+      </div>
+    </div>
+    <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
+  </div>
+</div>
+
+<!-- RESULTS -->
+<div class="screen" id="s-results">
+  <div class="results-wrap">
+    <div class="results-header">
+      <div class="rh-left">
+        <div class="rh-title">SCREENING COMPLETE</div>
+        <div class="rh-sub" id="rh-sub">—</div>
+      </div>
+      <div class="btn-row">
+        <button class="btn" id="btn-reset">
+          <svg viewBox="0 0 13 13"><polyline points="1,6 1,1 6,1"/><path d="M1,1 a6,6 0 1,1 -0.5,4.5"/></svg>
+          New file
+        </button>
+        <button class="btn" id="btn-csv">
+          <svg viewBox="0 0 13 13"><path d="M2 9v2a1 1 0 001 1h7a1 1 0 001-1V9"/><polyline points="4.5,5.5 6.5,8 8.5,5.5"/><line x1="6.5" y1="1" x2="6.5" y2="8"/></svg>
+          Export CSV
+        </button>
+        <button class="btn btn-export" id="btn-xlsx">
+          <svg viewBox="0 0 13 13"><path d="M2 9v2a1 1 0 001 1h7a1 1 0 001-1V9"/><polyline points="4.5,5.5 6.5,8 8.5,5.5"/><line x1="6.5" y1="1" x2="6.5" y2="8"/></svg>
+          Export dark Excel
+        </button>
+      </div>
+    </div>
+
+    <div class="kpi-bar">
+      <div class="kpi"><div class="kpi-label">Total input</div><div class="kpi-val" id="k-total">—</div></div>
+      <div class="kpi"><div class="kpi-label">Filtered out</div><div class="kpi-val r" id="k-removed">—</div></div>
+      <div class="kpi"><div class="kpi-label">Qualified</div><div class="kpi-val g" id="k-final">—</div></div>
+      <div class="kpi"><div class="kpi-label">Ranked</div><div class="kpi-val g" id="k-ranked">—</div></div>
+      <div class="kpi"><div class="kpi-label">Top picks</div><div class="kpi-val g">20</div></div>
+    </div>
+
+    <div class="table-area">
+      <table>
+        <thead>
+          <tr>
+            <th>#</th><th>Ticker</th><th>Company</th>
+            <th>Price R$</th><th>EBIT %</th><th>EV/EBIT</th>
+            <th>EV/EBITDA</th><th>Volume</th><th>Mkt Cap</th>
+            <th>DY %</th><th>P/E</th><th>ROE %</th><th>P/BV</th>
+          </tr>
+        </thead>
+        <tbody id="tableBody"></tbody>
+      </table>
+    </div>
+
+    <div class="log-bar" id="logBar"></div>
+  </div>
+</div>
+
+<script>
+const EXCL = new Set(['BBAS3','BBDC3','BBDC4','ITUB3','ITUB4','SANB3','SANB4','SANB11','BPAC3','BPAC5','BPAC11','BRSR3','BRSR5','BRSR6','BSLI3','BSLI4','BMGB4','BNBR3','PINE4','MODL3','MODL11','BRGE3','BRGE5','BRGE12','ABCB3','ABCB4','IDVL3','IDVL4','CRIV3','CRIV4','DAYC4','BMIN3','BMIN4','CXSE3','PSSA3','SULA3','SULA11','IRBR3','WIZC3','BBSE3','BBSE11','EGIE3','PTBL3','ITSA3','ITSA4']);
+const EXCL_KW = ['BANCO','SEGURADORA','FINANCEIRA','CORRETORA'];
+let resultRows = [], logLines = [];
+
+function show(id) {
+  document.querySelectorAll('.screen').forEach(s => { s.classList.remove('active'); });
+  document.getElementById(id).classList.add('active');
+}
+
+function setDot(i, state, count='') {
+  const dot = document.getElementById('dot-'+i);
+  const name = document.getElementById('name-'+i);
+  const cnt = document.getElementById('cnt-'+i);
+  dot.className = 'si-dot ' + state;
+  name.className = 'si-name' + (state !== 'idle' ? ' active' : '');
+  if (count) cnt.textContent = count;
+  const done = document.querySelectorAll('.si-dot.done').length;
+  document.getElementById('progressFill').style.width = (done / 5 * 100) + '%';
+}
+
+function delay(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+async function runSteps(rows) {
+  show('s-loading');
+  document.getElementById('navStatus').textContent = '● processing';
+  logLines = [];
+  const total = rows.length;
+
+  setDot(0,'run');
+  await delay(550);
+  setDot(0,'done', total + ' companies loaded');
+  logLines.push('Loaded ' + total + ' companies');
+
+  setDot(1,'run');
+  await delay(650);
+  let prev = rows.length;
+  rows = rows.filter(r => r.vol >= 3_000_000);
+  setDot(1,'done', rows.length + ' kept · ' + (prev - rows.length) + ' removed');
+  logLines.push('Liquidity ≥ R$3M → ' + rows.length + ' kept, ' + (prev - rows.length) + ' removed');
+
+  setDot(2,'run');
+  await delay(600);
+  prev = rows.length;
+  rows = rows.filter(r => !isNaN(r.ebitM) && r.ebitM > 0);
+  setDot(2,'done', rows.length + ' kept · ' + (prev - rows.length) + ' removed');
+  logLines.push('Positive EBIT → ' + rows.length + ' kept, ' + (prev - rows.length) + ' removed');
+
+  setDot(3,'run');
+  await delay(700);
+  prev = rows.length;
+  rows = rows.filter(r => !EXCL.has(r.ticker) && !EXCL_KW.some(k => r.empresa.toUpperCase().includes(k)));
+  const seen = new Map();
+  rows.forEach(r => { if (!seen.has(r.empresa) || r.vol > seen.get(r.empresa).vol) seen.set(r.empresa, r); });
+  rows = Array.from(seen.values());
+  setDot(3,'done', rows.length + ' kept · ' + (prev - rows.length) + ' removed');
+  logLines.push('Financials/dupes removed → ' + rows.length + ' kept, ' + (prev - rows.length) + ' removed');
+
+  setDot(4,'run');
+  await delay(550);
+  const valid = rows.filter(r => !isNaN(r.evEbit) && r.evEbit > 0).sort((a,b) => a.evEbit - b.evEbit);
+  const noEv  = rows.filter(r => isNaN(r.evEbit) || r.evEbit <= 0);
+  resultRows = [...valid, ...noEv];
+  setDot(4,'done', valid.length + ' ranked · ' + noEv.length + ' no EV/EBIT');
+  logLines.push('Ranked ' + valid.length + ' by EV/EBIT · ' + noEv.length + ' without EV/EBIT');
+
+  await delay(350);
+  renderResults(total, valid, noEv);
+  show('s-results');
+  document.getElementById('navStatus').textContent = '● done';
+}
+
+function fmt(v, d=2) { return (v == null || isNaN(v)) ? '—' : Number(v).toFixed(d); }
+function fmtPct(v) { return (v == null || isNaN(v)) ? '—' : (v * 100).toFixed(1) + '%'; }
+function fmtVol(v) {
+  if (!v || isNaN(v)) return '—';
+  if (v >= 1e9) return (v/1e9).toFixed(1) + 'B';
+  if (v >= 1e6) return (v/1e6).toFixed(1) + 'M';
+  if (v >= 1e3) return (v/1e3).toFixed(0) + 'K';
+  return v.toFixed(0);
+}
+
+function renderResults(total, valid, noEv) {
+  document.getElementById('k-total').textContent = total;
+  document.getElementById('k-removed').textContent = total - resultRows.length;
+  document.getElementById('k-final').textContent = resultRows.length;
+  document.getElementById('k-ranked').textContent = valid.length;
+  document.getElementById('rh-sub').textContent = 'Screened ' + new Date().toLocaleDateString('pt-BR') + ' · ' + valid.length + ' companies ranked by EV/EBIT';
+
+  const tbody = document.getElementById('tableBody');
+  let html = '';
+  valid.forEach((r, i) => {
+    const rank = i + 1;
+    const isT3  = rank <= 3;
+    const isT20 = rank <= 20;
+    const cls   = isT3 ? 't3' : isT20 ? 't20' : '';
+    const badgeCls = isT3 ? 'rank-badge r-gold' : isT20 ? 'rank-badge r-green' : 'rank-badge';
+    const badgeStyle = (!isT3 && !isT20) ? 'style="background:transparent"' : '';
+    const rankInner = (isT3 || isT20) ? rank : `<span class="r-num">${rank}</span>`;
+    const evCls = isT3 ? 'ev-top3' : isT20 ? 'ev-top20' : '';
+    html += `<tr class="${cls}">
+      <td><span class="${badgeCls}" ${badgeStyle}>${rankInner}</span></td>
+      <td>${r.ticker}</td><td>${r.empresa}</td>
+      <td>${fmt(r.preco)}</td>
+      <td>${fmtPct(r.ebitM)}</td>
+      <td class="${evCls}">${fmt(r.evEbit)}x</td>
+      <td>${isNaN(r.evEbitda) ? '—' : fmt(r.evEbitda) + 'x'}</td>
+      <td>${fmtVol(r.vol)}</td>
+      <td>${fmtVol(r.mktCap)}</td>
+      <td>${fmtPct(r.dy)}</td>
+      <td>${isNaN(r.pe) ? '—' : fmt(r.pe) + 'x'}</td>
+      <td>${fmtPct(r.roe)}</td>
+      <td>${isNaN(r.pbv) ? '—' : fmt(r.pbv) + 'x'}</td>
+    </tr>`;
+  });
+  noEv.forEach(r => {
+    html += `<tr>
+      <td><span class="r-num">—</span></td>
+      <td>${r.ticker}</td><td>${r.empresa}</td>
+      <td>${fmt(r.preco)}</td><td>${fmtPct(r.ebitM)}</td>
+      <td class="ev-none">—</td>
+      <td>—</td>
+      <td>${fmtVol(r.vol)}</td><td>${fmtVol(r.mktCap)}</td>
+      <td>${fmtPct(r.dy)}</td>
+      <td>${isNaN(r.pe) ? '—' : fmt(r.pe) + 'x'}</td>
+      <td>${fmtPct(r.roe)}</td>
+      <td>${isNaN(r.pbv) ? '—' : fmt(r.pbv) + 'x'}</td>
+    </tr>`;
+  });
+  tbody.innerHTML = html;
+
+  document.getElementById('logBar').innerHTML = logLines.map(l => `<div class="log-item">${l}</div>`).join('');
+}
+
+function parseFile(file) {
+  document.getElementById('dz-filename').textContent = file.name;
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const wb = XLSX.read(e.target.result, { type: 'array' });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const raw = XLSX.utils.sheet_to_json(ws, { header: 1 });
+      let hi = -1;
+      for (let i = 0; i < raw.length; i++) {
+        if (raw[i] && raw[i].some(c => String(c||'').trim() === 'Ação')) { hi = i; break; }
+      }
+      if (hi === -1) { alert('Header row not found. Make sure this is an InvestSite export.'); return; }
+      const h = raw[hi].map(x => String(x||'').trim());
+      const c = n => h.indexOf(n);
+      const rows = raw.slice(hi + 1).filter(r => r && r[c('Ação')]).map(r => ({
+        ticker:   String(r[c('Ação')]||'').trim(),
+        empresa:  String(r[c('Empresa')]||'').trim(),
+        preco:    parseFloat(r[c('Preço')]) || null,
+        ebitM:    parseFloat(r[c('Margem EBIT')]),
+        evEbit:   parseFloat(r[c('EV/EBIT')]),
+        evEbitda: parseFloat(r[c('EV/EBITDA')]),
+        vol:      parseFloat(r[c('Volume Diário Médio (3 meses)')]) || 0,
+        mktCap:   parseFloat(r[c('Market Cap Empresa')]) || null,
+        dy:       parseFloat(r[c('Dividend Yield')]),
+        pe:       parseFloat(r[c('Preço/Lucro')]),
+        roe:      parseFloat(r[c('RPL')]),
+        pbv:      parseFloat(r[c('Preço/VPA')]),
+      }));
+      runSteps(rows);
+    } catch(err) { alert('Error parsing file: ' + err.message); }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function exportCSV() {
+  if (!resultRows.length) return;
+  const validCount = resultRows.filter(r => !isNaN(r.evEbit) && r.evEbit > 0).length;
+  const hdr = ['Rank','Ticker','Company','Price','EBIT%','EV/EBIT','EV/EBITDA','Volume','MktCap','DY%','PE','ROE%','PBV'];
+  const lines = [hdr.join(','), ...resultRows.map((r,i) => [
+    i < validCount ? i+1 : '—', r.ticker, `"${r.empresa}"`,
+    r.preco!=null ? r.preco.toFixed(2) : '',
+    !isNaN(r.ebitM) ? (r.ebitM*100).toFixed(2) : '',
+    !isNaN(r.evEbit) && r.evEbit > 0 ? r.evEbit.toFixed(2) : '',
+    !isNaN(r.evEbitda) ? r.evEbitda.toFixed(2) : '',
+    r.vol.toFixed(0), r.mktCap!=null ? r.mktCap.toFixed(0) : '',
+    !isNaN(r.dy) ? (r.dy*100).toFixed(2) : '',
+    !isNaN(r.pe) ? r.pe.toFixed(2) : '',
+    !isNaN(r.roe) ? (r.roe*100).toFixed(2) : '',
+    !isNaN(r.pbv) ? r.pbv.toFixed(2) : '',
+  ].join(','))];
+  download(new Blob([lines.join('\n')], {type:'text/csv'}), `Lobo_${today()}.csv`);
+}
+
+function exportXLSX() {
+  if (!resultRows.length) return;
+  const validCount = resultRows.filter(r => !isNaN(r.evEbit) && r.evEbit > 0).length;
+
+  // Build workbook with SheetJS
+  const wb = XLSX.utils.book_new();
+
+  // ── DATA SHEET ──
+  const aoa = [
+    ['LOBO DE OSTERNACK  ·  STOCK SCREENER', '', '', '', '', '', '', '', '', '', '', '', ''],
+    ['Método Lobo de Osternack  ·  Screened ' + today() + '  ·  Top 20 highlighted', '', '', '', '', '', '', '', '', '', '', '', ''],
+    ['', '', '', '', '', '', '', '', '', '', '', '', ''],
+    ['RANK','TICKER','COMPANY','PRICE (R$)','EBIT %','EV/EBIT','EV/EBITDA','AVG VOLUME','MKT CAP','DY %','P/E','ROE %','P/BV'],
+    ...resultRows.map((r, i) => [
+      i < validCount ? i+1 : '-',
+      r.ticker, r.empresa,
+      r.preco || '',
+      !isNaN(r.ebitM) ? r.ebitM : '',
+      !isNaN(r.evEbit) && r.evEbit > 0 ? r.evEbit : '',
+      !isNaN(r.evEbitda) ? r.evEbitda : '',
+      r.vol || '',
+      r.mktCap || '',
+      !isNaN(r.dy) ? r.dy : '',
+      !isNaN(r.pe) ? r.pe : '',
+      !isNaN(r.roe) ? r.roe : '',
+      !isNaN(r.pbv) ? r.pbv : '',
+    ])
+  ];
+
+  const ws = XLSX.utils.aoa_to_sheet(aoa);
+
+  // Column widths
+  ws['!cols'] = [
+    {wch:6},{wch:9},{wch:28},{wch:11},{wch:10},{wch:9},{wch:10},{wch:16},{wch:14},{wch:8},{wch:8},{wch:8},{wch:8}
+  ];
+
+  // Merge title rows
+  ws['!merges'] = [
+    {s:{r:0,c:0},e:{r:0,c:12}},
+    {s:{r:1,c:0},e:{r:1,c:12}},
+    {s:{r:2,c:0},e:{r:2,c:12}},
+  ];
+
+  XLSX.utils.book_append_sheet(wb, ws, 'Screening');
+
+  // ── LOG SHEET ──
+  const logAoa = [
+    ['FILTER LOG'],
+    [today()],
+    [''],
+    ...logLines.map(l => ['→  ' + l])
+  ];
+  const wsLog = XLSX.utils.aoa_to_sheet(logAoa);
+  wsLog['!cols'] = [{wch:70}];
+  XLSX.utils.book_append_sheet(wb, wsLog, 'Filter Log');
+
+  const buf = XLSX.write(wb, {bookType:'xlsx', type:'array'});
+  download(new Blob([buf], {type:'application/octet-stream'}), `Lobo_Screener_${today()}.xlsx`);
+}
+
+function today() { return new Date().toISOString().slice(0,10); }
+function download(blob, name) {
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+  a.download = name; a.click(); URL.revokeObjectURL(a.href);
+}
+
+function resetAll() {
+  resultRows = []; logLines = [];
+  document.getElementById('dz-filename').textContent = '';
+  document.getElementById('fileInput').value = '';
+  for (let i = 0; i < 5; i++) {
+    document.getElementById('dot-'+i).className = 'si-dot idle';
+    document.getElementById('name-'+i).className = 'si-name';
+    document.getElementById('cnt-'+i).textContent = '';
+  }
+  document.getElementById('progressFill').style.width = '0%';
+  document.getElementById('navStatus').textContent = '● ready';
+  show('s-landing');
+}
+
+// Events
+const dz = document.getElementById('dropZone');
+const fi = document.getElementById('fileInput');
+dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('drag'); });
+dz.addEventListener('dragleave', () => dz.classList.remove('drag'));
+dz.addEventListener('drop', e => { e.preventDefault(); dz.classList.remove('drag'); if (e.dataTransfer.files[0]) parseFile(e.dataTransfer.files[0]); });
+fi.addEventListener('change', e => { if (e.target.files[0]) parseFile(e.target.files[0]); });
+document.getElementById('btn-reset').addEventListener('click', resetAll);
+document.getElementById('btn-csv').addEventListener('click', exportCSV);
+document.getElementById('btn-xlsx').addEventListener('click', exportXLSX);
+</script>
+</body>
+</html>
